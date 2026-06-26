@@ -45,7 +45,9 @@ def init_garmin():
 
 
 def fetch_month(api):
-    buckets = {"sleep_hrs": [], "sleep_score": [], "hrv": [], "rhr": [], "workouts": []}
+    buckets = {"sleep_hrs": [], "sleep_score": [], "hrv": [], "rhr": []}
+    weeks = (end - start).days / 7
+
     current = start
     while current <= end:
         d = current.isoformat()
@@ -77,12 +79,24 @@ def fetch_month(api):
                 buckets["rhr"].append(rhr_list[0]["value"])
         except Exception:
             pass
-        try:
-            acts = api.get_activities_by_date(d, d) or []
-            buckets["workouts"].append(len(acts))
-        except Exception:
-            pass
         current += timedelta(days=1)
+
+    # Fetch all activities for the month in one call
+    total_workouts = 0
+    total_running_km = 0.0
+    total_cycling_km = 0.0
+    try:
+        acts = api.get_activities_by_date(start.isoformat(), end.isoformat()) or []
+        total_workouts = len(acts)
+        for act in acts:
+            type_key = (act.get("activityType") or {}).get("typeKey", "")
+            km = (act.get("distance") or 0) / 1000
+            if type_key == "running":
+                total_running_km += km
+            elif type_key == "cycling":
+                total_cycling_km += km
+    except Exception:
+        pass
 
     def avg(lst):
         return round(sum(lst) / len(lst), 2) if lst else None
@@ -92,7 +106,9 @@ def fetch_month(api):
         "sleep_score": avg(buckets["sleep_score"]),
         "hrv": avg(buckets["hrv"]),
         "rhr": avg(buckets["rhr"]),
-        "workout_count": avg(buckets["workouts"]),
+        "weekly_workouts": round(total_workouts / weeks, 2),
+        "weekly_running_km": round(total_running_km / weeks, 2),
+        "weekly_cycling_km": round(total_cycling_km / weeks, 2),
     }
 
 
@@ -132,8 +148,12 @@ def upsert_monthly_page(token, database_id, metrics):
         properties["HRV"] = {"number": metrics["hrv"]}
     if metrics.get("rhr") is not None:
         properties["Resting HR"] = {"number": metrics["rhr"]}
-    if metrics.get("workout_count") is not None:
-        properties["Workout Count"] = {"number": metrics["workout_count"]}
+    if metrics.get("weekly_workouts") is not None:
+        properties["Weekly Workouts"] = {"number": metrics["weekly_workouts"]}
+    if metrics.get("weekly_running_km") is not None:
+        properties["Weekly Running (km)"] = {"number": metrics["weekly_running_km"]}
+    if metrics.get("weekly_cycling_km") is not None:
+        properties["Weekly Cycling (km)"] = {"number": metrics["weekly_cycling_km"]}
 
     existing = notion_request(
         "POST",
