@@ -26,10 +26,12 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Restore Garmin auth tokens
-        if: ${{ secrets.GARTH_TOKENS != '' }}
+        if: env.GARTH_TOKENS != ''
         run: |
-          echo "${{ secrets.GARTH_TOKENS }}" | base64 -d | tar -xzf - -C /
+          echo "$GARTH_TOKENS" | base64 -d | tar -xzf - -C /
         shell: bash
+        env:
+          GARTH_TOKENS: ${{ secrets.GARTH_TOKENS }}
 
       - name: Run sync
         run: python sync.py
