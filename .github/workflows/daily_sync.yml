@@ -1,0 +1,42 @@
+name: Daily Garmin Sync
+
+on:
+  schedule:
+    # 8:00 AM UTC = 9:00 AM CET / 10:00 AM CEST
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      sync_date:
+        description: 'Date to sync (YYYY-MM-DD). Defaults to yesterday.'
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore Garmin auth tokens
+        if: ${{ secrets.GARTH_TOKENS != '' }}
+        run: |
+          echo "${{ secrets.GARTH_TOKENS }}" | base64 -d | tar -xzf - -C /
+        shell: bash
+
+      - name: Run sync
+        run: python sync.py
+        env:
+          GARMIN_EMAIL: ${{ secrets.GARMIN_EMAIL }}
+          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+          GARTH_TOKENS: ${{ secrets.GARTH_TOKENS }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+          SYNC_DATE: ${{ github.event.inputs.sync_date }}
