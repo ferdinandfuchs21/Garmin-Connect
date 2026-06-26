@@ -108,7 +108,7 @@ def notion_request(method, path, token, body=None):
     }
     resp = requests.request(
         method,
-        f"https://api.notionhq.com/v1/{path}",
+        f"https://api.notion.com/v1/{path}",
         headers=headers,
         json=body,
     )
